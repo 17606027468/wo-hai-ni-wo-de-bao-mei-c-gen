@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="description" content="输入总价值和每个人的占比，自动计算每人成本。可安装到 iPhone 主屏幕，离线可用。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="成本计算器">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#2563eb">
+<title>成本计算器</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<style>
+  :root {
+    --bg: #eef2f6;
+    --card: #ffffff;
+    --ink: #17202b;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --accent: #2563eb;
+    --accent-strong: #1d4ed8;
+    --ok: #047857;
+    --ok-bg: #ecfdf5;
+    --ok-line: #a7f3d0;
+    --warn: #b45309;
+    --warn-bg: #fffbeb;
+    --warn-line: #fde68a;
+    --bad: #b91c1c;
+    --bad-bg: #fef2f2;
+    --bad-line: #fecaca;
+    --radius: 16px;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .05), 0 12px 32px -18px rgba(15, 23, 42, .25);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1100px 480px at 88% -12%, #dbeafe 0%, transparent 62%),
+      var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 32px 20px 64px;
+  }
+
+  /* ---------- header ---------- */
+  .app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 46px;
+    height: 46px;
+    flex: none;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(145deg, #3b82f6, #1d4ed8);
+    box-shadow: 0 8px 18px -8px rgba(37, 99, 235, .8);
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: .01em; }
+  .sub { margin: 0; font-size: 13px; color: var(--muted); }
+  .badge {
+    flex: none;
+    font-size: 12px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, .75);
+    padding: 6px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  /* ---------- cards ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid rgba(226, 232, 240, .9);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px 22px;
+  }
+  .card + .card { margin-top: 18px; }
+
+  /* ---------- total value ---------- */
+  .field { display: block; }
+  .field-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    color: var(--muted);
+  }
+
+  .input {
+    width: 100%;
+    border: 1px solid transparent;
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 11px 12px;
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    transition: background .15s, border-color .15s, box-shadow .15s;
+  }
+  .input:hover { background: #e9eef5; }
+  .input:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+  }
+  .input::placeholder { color: #94a3b8; }
+
+  .money-input {
+    display: flex;
+    align-items: center;
+    max-width: 460px;
+    background: #f1f5f9;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 2px 14px;
+    transition: background .15s, border-color .15s, box-shadow .15s;
+  }
+  .money-input:hover { background: #e9eef5; }
+  .money-input:focus-within {
+    background: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .15);
+  }
+  .money-input .prefix {
+    flex: none;
+    margin-top: 2px;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  #total {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 8px 0 8px 6px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  #total:focus { outline: none; }
+  #total::placeholder { color: #94a3b8; font-weight: 500; }
+
+  /* ---------- summary chips ---------- */
+  .summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--line);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 11px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: #f1f5f9;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip.ok { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-line); }
+  .chip.warn { background: var(--warn-bg); color: var(--warn); border-color: var(--warn-line); }
+  .chip.bad { background: var(--bad-bg); color: var(--bad); border-color: var(--bad-line); }
+
+  /* ---------- result table ---------- */
+  .card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .card-head h2 { margin: 0; font-size: 16px; }
+  .card-sub { margin: 0; font-size: 13px; color: var(--muted); }
+
+  .table-wrap { overflow-x: auto; margin: 6px -6px 0; padding: 0 6px; }
+
+  table.grid {
+    width: 100%;
+    min-width: 520px;
+    border-collapse: collapse;
+  }
+  .grid th {
+    padding: 12px 10px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    color: var(--muted);
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .grid th:nth-child(2) { width: 150px; text-align: right; }
+  .grid th:nth-child(3) { width: 190px; text-align: right; }
+  .grid td {
+    padding: 7px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid #eef2f7;
+  }
+  .grid tbody tr { transition: background .12s; }
+  .grid tbody tr:hover { background: #fafcff; }
+  .grid .input { padding: 8px 10px; font-size: 14px; background: transparent; }
+  .grid .input:hover { background: #f1f5f9; }
+  .grid .input:focus { background: #fff; }
+
+  .pct-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+  .pct-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    text-align: right;
+    padding-right: 4px !important;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .pct-input::-webkit-outer-spin-button,
+  .pct-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .pct-sign { flex: none; font-size: 14px; color: var(--muted); }
+
+  .grid td.amount-cell {
+    text-align: right;
+    white-space: nowrap;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .grid td.act { width: 46px; text-align: right; }
+
+  .grid tfoot td {
+    padding: 14px 10px 4px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    border-top: 1px solid var(--line);
+    border-bottom: none;
+  }
+  .grid tfoot td:nth-child(2),
+  .grid tfoot td:nth-child(3) { text-align: right; }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #94a3b8;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+    touch-action: manipulation;
+  }
+  .icon-btn:hover:not(:disabled) { background: var(--bad-bg); color: var(--bad); }
+  .icon-btn:disabled { opacity: .3; cursor: not-allowed; }
+
+  /* ---------- actions ---------- */
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--line);
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--ink);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .15s;
+    touch-action: manipulation;
+  }
+  .btn:hover { background: #f8fafc; border-color: #cbd5e1; transform: translateY(-1px); }
+  .btn:active { transform: none; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
+
+  .hint {
+    margin: 16px 4px 0;
+    font-size: 12.5px;
+    line-height: 1.75;
+    color: var(--muted);
+  }
+  .hint code {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: #e8eef6;
+    font-size: 12px;
+  }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    transform: translate(-50%, 14px);
+    padding: 11px 18px;
+    border-radius: 11px;
+    background: #0f172a;
+    color: #fff;
+    font-size: 14px;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 12px 30px -10px rgba(15, 23, 42, .6);
+    transition: opacity .2s, transform .2s;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---------- mobile: one card per person ---------- */
+  @media (max-width: 640px) {
+    .wrap {
+      padding: calc(18px + env(safe-area-inset-top, 0px)) 12px calc(40px + env(safe-area-inset-bottom, 0px));
+    }
+    .app-header { margin-bottom: 14px; }
+    .logo { width: 40px; height: 40px; border-radius: 12px; }
+    .logo svg { width: 22px; height: 22px; }
+    h1 { font-size: 18px; }
+    .sub { font-size: 12px; }
+    .badge { display: none; }
+
+    .card { padding: 16px 14px; }
+    .card + .card { margin-top: 14px; }
+    .money-input { max-width: none; }
+    #total { font-size: 24px; }
+    .summary { margin-top: 14px; padding-top: 14px; gap: 6px; }
+    .card-head { margin-bottom: 12px; }
+    .card-sub { display: none; }
+
+    .table-wrap { overflow: visible; margin: 4px 0 0; padding: 0; }
+    table.grid { min-width: 0; display: block; }
+    .grid thead { display: none; }
+    .grid tbody { display: block; }
+    .grid tbody tr {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        "name del"
+        "pct amount";
+      align-items: center;
+      gap: 2px 12px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fbfcfe;
+    }
+    .grid tbody td { display: block; padding: 0; border: none; }
+    .grid td.cell-name { grid-area: name; }
+    .grid td.cell-name .input { padding: 4px 6px; font-size: 16px; font-weight: 600; }
+    .grid td.cell-pct { grid-area: pct; display: flex; align-items: center; gap: 6px; }
+    .grid td.cell-pct::before { content: "占比"; flex: none; font-size: 12px; color: var(--muted); }
+    .grid td.cell-pct .pct-wrap { width: 112px; justify-content: flex-end; }
+    .grid td.cell-pct .pct-input { font-size: 16px; padding: 4px 2px !important; }
+    .grid td.cell-amount { grid-area: amount; text-align: right; font-size: 17px; }
+    .grid td.cell-act { grid-area: del; align-self: start; justify-self: end; }
+    .grid .icon-btn { width: 34px; height: 34px; font-size: 15px; }
+
+    .grid tfoot { display: block; }
+    .grid tfoot tr {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      padding: 12px 2px 2px;
+      border-top: 1px dashed var(--line);
+    }
+    .grid tfoot td { display: block; padding: 0; border: none; }
+    .grid tfoot td.sum-label { margin-right: auto; font-size: 15px; }
+    .grid tfoot td.sum-spacer { display: none; }
+    .grid tfoot td#sumPct { font-size: 14px; }
+    .grid tfoot td#sumAmount { font-size: 17px; }
+
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; padding-top: 14px; }
+    .actions .btn { justify-content: center; padding: 12px 10px; font-size: 14px; }
+    .actions .btn.primary { grid-column: 1 / -1; }
+    .hint { margin-top: 14px; font-size: 12px; line-height: 1.7; }
+  }
+
+  /* ---------- print ---------- */
+  @media print {
+    body { background: #fff; }
+    .wrap { max-width: none; padding: 0; }
+    .app-header .badge,
+    .actions,
+    .hint,
+    .toast,
+    .icon-btn { display: none !important; }
+    .grid th:nth-child(4),
+    .grid td:nth-child(4) { display: none !important; }
+    .card {
+      margin: 0 0 10px;
+      border: 1px solid #ddd;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .input, .money-input { background: #fff !important; border-color: transparent !important; }
+    .table-wrap { overflow: visible; }
+    table.grid { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+          <ellipse cx="9" cy="19.5" rx="6.2" ry="3.6" fill="#fff" opacity=".85"/>
+          <ellipse cx="19" cy="20" rx="5" ry="3" fill="#fff" opacity=".7"/>
+          <ellipse cx="14" cy="12" rx="6.4" ry="4.4" fill="#fff"/>
+        </svg>
+      </div>
+      <div>
+        <h1>成本计算器</h1>
+        <p class="sub">填石头总价值 + 每个人的占比，自动算出每人成本</p>
+      </div>
+    </div>
+    <span class="badge">离线可用 · 自动保存</span>
+  </header>
+
+  <section class="card">
+    <label class="field">
+      <span class="field-label">石头总价值（元）</span>
+      <span class="money-input">
+        <span class="prefix">¥</span>
+        <input id="total" type="text" inputmode="decimal" autocomplete="off" spellcheck="false" placeholder="0.00">
+      </span>
+    </label>
+    <div class="summary" aria-live="polite">
+      <span id="chipPct" class="chip">合计占比 —</span>
+      <span id="chipRest" class="chip">—</span>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>每人成本</h2>
+      <p class="card-sub">每行一个人，修改占比后成本实时更新</p>
+    </div>
+
+    <div class="table-wrap">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th>人员</th>
+            <th>占比（%）</th>
+            <th>成本（元）</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot>
+          <tr>
+            <td class="sum-label">合计</td>
+            <td id="sumPct">—</td>
+            <td id="sumAmount">—</td>
+            <td class="sum-spacer"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="actions">
+      <button id="addBtn" class="btn primary" type="button">＋ 添加人员</button>
+      <button id="csvBtn" class="btn" type="button">导出 CSV</button>
+      <button id="printBtn" class="btn" type="button">打印 / 存 PDF</button>
+    </div>
+
+    <p class="hint">
+      计算方式：<code>每人成本 = 石头总价值 × 该人占比</code>。占比合计为 100% 时，各人成本相加严格等于总价值（分不尽的尾差自动归入金额最大的人）；
+      合计不足或超过 100% 时会提示未分配 / 超出金额。数据自动保存在本机，卸载或清除 Safari 数据会丢失。
+    </p>
+  </section>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'stone-cost-split:v2';
+
+  function DEFAULTS() {
+    return {
+      total: 1372500,
+      rows: [
+        { name: 'a', pct: 20 },
+        { name: 'b', pct: 30 },
+        { name: 'c', pct: 40 },
+        { name: 'd', pct: 10 }
+      ]
+    };
+  }
+
+  function $(selector) {
+    return document.querySelector(selector);
+  }
+
+  var els = {
+    total: $('#total'),
+    tbody: $('#tbody'),
+    sumPct: $('#sumPct'),
+    sumAmount: $('#sumAmount'),
+    chipPct: $('#chipPct'),
+    chipRest: $('#chipRest'),
+    addBtn: $('#addBtn'),
+    csvBtn: $('#csvBtn'),
+    printBtn: $('#printBtn'),
+    toast: $('#toast')
+  };
+
+  var state = loadState();
+  var lastAmounts = [];
+  var lastSum = 0;
+  var lastSumPct = 0;
+  var toastTimer = null;
+
+  /* ---------------- utilities ---------------- */
+
+  function parseNum(value) {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    if (value == null) return 0;
+    var text = String(value).trim();
+    text = text.replace(/[０-９]/g, function (ch) {
+      return String.fromCharCode(ch.charCodeAt(0) - 0xfee0);
+    });
+    text = text.replace(/[，,]/g, '').replace(/[％%]/g, '').replace(/[¥￥\s]/g, '');
+    if (!text) return 0;
+    var num = Number(text);
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  function roundTo(value, decimals) {
+    var factor = Math.pow(10, decimals);
+    return Math.round((value + Number.EPSILON) * factor) / factor;
+  }
+
+  function fmtMoney(value) {
+    var num = Number.isFinite(value) ? value : 0;
+    return num.toLocaleString('zh-CN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function fmtPct(value) {
+    var num = Math.round(value * 1e6) / 1e6;
+    return num.toLocaleString('zh-CN', { maximumFractionDigits: 4 }) + '%';
+  }
+
+  function plainNum(value, decimals) {
+    var num = Number.isFinite(value) ? value : 0;
+    if (decimals == null) return String(Math.round(num * 1e6) / 1e6);
+    return num.toFixed(decimals);
+  }
+
+  function pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  function dateStamp() {
+    var now = new Date();
+    return '' + now.getFullYear() + pad2(now.getMonth() + 1) + pad2(now.getDate()) +
+      '-' + pad2(now.getHours()) + pad2(now.getMinutes());
+  }
+
+  function toast(message) {
+    els.toast.textContent = message;
+    els.toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      els.toast.classList.remove('show');
+    }, 2200);
+  }
+
+  function download(filename, content, mime) {
+    var blob = new Blob([content], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+      link.remove();
+    }, 1200);
+  }
+
+  /* ---------------- persistence ---------------- */
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      /* storage unavailable: ignore */
+    }
+  }
+
+  function sanitizeRows(rows, fallback) {
+    if (!Array.isArray(rows) || rows.length === 0) return fallback;
+    return rows.slice(0, 50).map(function (row) {
+      return {
+        name: row && row.name != null ? String(row.name).slice(0, 20) : '',
+        pct: Math.max(0, parseNum(row && row.pct))
+      };
+    });
+  }
+
+  function loadState() {
+    var def = DEFAULTS();
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return def;
+      var data = JSON.parse(raw);
+      if (!data || typeof data !== 'object') return def;
+      return {
+        total: Math.max(0, parseNum(data.total)),
+        rows: sanitizeRows(data.rows, def.rows)
+      };
+    } catch (err) {
+      return def;
+    }
+  }
+
+  /* ---------------- rendering ---------------- */
+
+  function makeRowEl(row) {
+    var tr = document.createElement('tr');
+
+    var tdName = document.createElement('td');
+    tdName.className = 'cell-name';
+    var nameInput = document.createElement('input');
+    nameInput.className = 'input name-input';
+    nameInput.type = 'text';
+    nameInput.maxLength = 20;
+    nameInput.autocomplete = 'off';
+    nameInput.placeholder = '姓名';
+    nameInput.setAttribute('aria-label', '人员姓名');
+    nameInput.value = row.name || '';
+    nameInput.addEventListener('input', function () {
+      row.name = nameInput.value;
+      save();
+    });
+    tdName.appendChild(nameInput);
+
+    var tdPct = document.createElement('td');
+    tdPct.className = 'cell-pct';
+    var pctWrap = document.createElement('span');
+    pctWrap.className = 'pct-wrap';
+    var pctInput = document.createElement('input');
+    pctInput.className = 'input pct-input';
+    pctInput.type = 'number';
+    pctInput.step = '0.01';
+    pctInput.min = '0';
+    pctInput.inputMode = 'decimal';
+    pctInput.setAttribute('aria-label', '占比百分数');
+    pctInput.value = String(row.pct);
+    pctInput.addEventListener('input', function () {
+      row.pct = Math.max(0, parseNum(pctInput.value));
+      recalc();
+      save();
+    });
+    pctInput.addEventListener('blur', function () {
+      pctInput.value = String(row.pct);
+    });
+    var pctSign = document.createElement('span');
+    pctSign.className = 'pct-sign';
+    pctSign.textContent = '%';
+    pctWrap.appendChild(pctInput);
+    pctWrap.appendChild(pctSign);
+    tdPct.appendChild(pctWrap);
+
+    var tdAmount = document.createElement('td');
+    tdAmount.className = 'amount-cell cell-amount';
+    var amountEl = document.createElement('span');
+    amountEl.className = 'amount';
+    amountEl.textContent = '—';
+    tdAmount.appendChild(amountEl);
+
+    var tdAct = document.createElement('td');
+    tdAct.className = 'act cell-act';
+    var delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'icon-btn del';
+    delBtn.title = '删除该人员';
+    delBtn.setAttribute('aria-label', '删除该人员');
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', function () {
+      if (state.rows.length <= 1) return;
+      var index = state.rows.indexOf(row);
+      if (index < 0) return;
+      state.rows.splice(index, 1);
+      tr.remove();
+      recalc();
+      save();
+    });
+    tdAct.appendChild(delBtn);
+
+    tr.appendChild(tdName);
+    tr.appendChild(tdPct);
+    tr.appendChild(tdAmount);
+    tr.appendChild(tdAct);
+    return tr;
+  }
+
+  function renderRows() {
+    els.tbody.textContent = '';
+    state.rows.forEach(function (row) {
+      els.tbody.appendChild(makeRowEl(row));
+    });
+  }
+
+  function renderAll() {
+    els.total.value = fmtMoney(state.total);
+    renderRows();
+    recalc();
+  }
+
+  /* ---------------- calculation ---------------- */
+
+  function recalc() {
+    var total = Number.isFinite(state.total) ? state.total : 0;
+    var sumPct = roundTo(state.rows.reduce(function (sum, row) {
+      return sum + (Number.isFinite(row.pct) ? row.pct : 0);
+    }, 0), 6);
+
+    var amounts = state.rows.map(function (row) {
+      return roundTo(total * (row.pct || 0) / 100, 2);
+    });
+
+    var exact = Math.abs(sumPct - 100) < 1e-9;
+
+    if (exact && amounts.length > 0) {
+      var target = roundTo(total, 2);
+      var allocated = roundTo(amounts.reduce(function (sum, value) { return sum + value; }, 0), 2);
+      var diff = roundTo(target - allocated, 2);
+      if (diff !== 0) {
+        var idx = 0;
+        for (var i = 1; i < amounts.length; i += 1) {
+          if (amounts[i] > amounts[idx]) idx = i;
+        }
+        amounts[idx] = roundTo(amounts[idx] + diff, 2);
+      }
+    }
+
+    var sumAmount = roundTo(amounts.reduce(function (sum, value) { return sum + value; }, 0), 2);
+    lastAmounts = amounts;
+    lastSum = sumAmount;
+    lastSumPct = sumPct;
+
+    var rowEls = els.tbody.children;
+    for (var j = 0; j < amounts.length; j += 1) {
+      var tr = rowEls[j];
+      if (!tr) continue;
+      var amountEl = tr.querySelector('.amount');
+      if (amountEl) amountEl.textContent = fmtMoney(amounts[j]);
+    }
+
+    els.sumPct.textContent = fmtPct(sumPct);
+    els.sumAmount.textContent = fmtMoney(sumAmount);
+
+    updateSummary(total, sumPct, sumAmount);
+    updateDeleteState();
+  }
+
+  function updateSummary(total, sumPct, sumAmount) {
+    var exact = Math.abs(sumPct - 100) < 1e-9;
+
+    els.chipPct.textContent = '合计占比 ' + fmtPct(sumPct);
+    els.chipPct.className = 'chip ' + (exact ? 'ok' : (sumPct < 100 ? 'warn' : 'bad'));
+
+    if (exact) {
+      var diff = roundTo(roundTo(total, 2) - sumAmount, 2);
+      if (diff === 0) {
+        els.chipRest.textContent = '✓ 已按 100% 全部分摊';
+        els.chipRest.className = 'chip ok';
+      } else {
+        var word = diff > 0 ? '未分配 ' : '超出 ';
+        els.chipRest.textContent = word + '¥' + fmtMoney(Math.abs(diff)) + '（尾差）';
+        els.chipRest.className = 'chip warn';
+      }
+      return;
+    }
+
+    if (sumPct < 100) {
+      var rest = roundTo(total * (100 - sumPct) / 100, 2);
+      els.chipRest.textContent = '未分配 ¥' + fmtMoney(rest) + '（差 ' + fmtPct(100 - sumPct) + '）';
+      els.chipRest.className = 'chip warn';
+    } else {
+      var over = roundTo(total * (sumPct - 100) / 100, 2);
+      els.chipRest.textContent = '超出 ¥' + fmtMoney(over) + '（多 ' + fmtPct(sumPct - 100) + '）';
+      els.chipRest.className = 'chip bad';
+    }
+  }
+
+  function updateDeleteState() {
+    var buttons = els.tbody.querySelectorAll('.del');
+    buttons.forEach(function (btn) {
+      btn.disabled = buttons.length <= 1;
+    });
+  }
+
+  /* ---------------- operations ---------------- */
+
+  function nextName() {
+    var used = {};
+    state.rows.forEach(function (row) {
+      used[String(row.name || '').trim().toLowerCase()] = true;
+    });
+    var letters = 'abcdefghijklmnopqrstuvwxyz';
+    for (var i = 0; i < letters.length; i += 1) {
+      if (!used[letters.charAt(i)]) return letters.charAt(i);
+    }
+    return '人员' + (state.rows.length + 1);
+  }
+
+  function addPerson() {
+    var row = { name: nextName(), pct: 0 };
+    state.rows.push(row);
+    var tr = makeRowEl(row);
+    els.tbody.appendChild(tr);
+    recalc();
+    save();
+    var nameInput = tr.querySelector('.name-input');
+    if (nameInput) {
+      nameInput.focus();
+      nameInput.select();
+    }
+  }
+
+  function exportCsv() {
+    function cell(value) {
+      var text = String(value == null ? '' : value);
+      return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+    }
+
+    var lines = [];
+    lines.push(cell('石头成本分摊'));
+    lines.push([cell('总价值（元）'), cell(plainNum(state.total, 2))].join(','));
+    lines.push('');
+    lines.push([cell('人员'), cell('占比（%）'), cell('成本（元）')].join(','));
+    state.rows.forEach(function (row, index) {
+      lines.push([
+        cell(row.name || ''),
+        cell(plainNum(row.pct)),
+        cell(plainNum(lastAmounts[index] == null ? 0 : lastAmounts[index], 2))
+      ].join(','));
+    });
+    lines.push([cell('合计'), cell(plainNum(lastSumPct)), cell(plainNum(lastSum, 2))].join(','));
+
+    download(
+      '石头成本分摊-' + dateStamp() + '.csv',
+      '\uFEFF' + lines.join('\r\n'),
+      'text/csv;charset=utf-8'
+    );
+    toast('CSV 已导出');
+  }
+
+  /* ---------------- events ---------------- */
+
+  function bindEvents() {
+    els.total.addEventListener('focus', function () {
+      els.total.value = String(state.total);
+    });
+    els.total.addEventListener('input', function () {
+      state.total = Math.max(0, parseNum(els.total.value));
+      recalc();
+      save();
+    });
+    els.total.addEventListener('blur', function () {
+      els.total.value = fmtMoney(state.total);
+    });
+
+    els.addBtn.addEventListener('click', addPerson);
+    els.csvBtn.addEventListener('click', exportCsv);
+    els.printBtn.addEventListener('click', function () {
+      if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      window.print();
+    });
+  }
+
+  bindEvents();
+  renderAll();
+})();
+</script>
+
+<script>
+  /* PWA: cache the app shell so it keeps working offline after the first visit */
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {
+        /* offline caching is a bonus; the app works without it */
+      });
+    });
+  }
+</script>
+</body>
+</html>
